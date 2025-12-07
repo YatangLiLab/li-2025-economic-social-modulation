@@ -28,8 +28,8 @@ window_error_trial = ['idm2_37', 'idm2_41', 'idm2_73', 'idm2_105', 'idm2_115', '
                       'idm15_21', 'idm15_54', 'idm15_62', 'idm15_74', 'idm16_54', 'idm16_56', 'idm19_2_31',
                       'idm5_17','idm5_18','idm5_42','idm17_34','idm7_7','idm7_204']
 
-## exp id that looming is played at the end of the arena
-nobar_end_ls = [ 'idm5', 'idm6', 'idm7', 'idm8', 'idm9', 'idm10', 'idm22', 'idm23', 'idm24', 'idm25', 
+## exp id that looming is played at the end of the arena for fig1
+general_ls = [ 'idm5', 'idm6', 'idm7', 'idm8', 'idm9', 'idm10', 'idm22', 'idm23', 'idm24', 'idm25', 
             'idm26_1', 'idm26_2', 'idm26_4', 'idm26_5', 'idm26_6', 'idm27', 'idm28', 'idm29', 'idm30', 'idm31', 'idm32',
                'idm33_1', 'idm33_3', 'idm33_4','idm33_5','idm34','idm35','idm36','idm37','idm38','idm39','idm40','idm41','idm42',
                 'idm43']
@@ -48,7 +48,71 @@ back_trial = ["idm15_3","idm15_10","idm15_14","idm15_27","idm15_35","idm15_41","
               "idm16_40","idm16_58","idm16_62",
              "idm15_1","idm15_9","idm15_13","idm15_17","idm15_25","idm15_30","idm15_39","idm15_49","idm15_57","idm16_13","idm16_25",
              "idm16_30","idm16_39","idm16_42","idm16_49","idm16_51","idm16_63"]
-
+## video key for explore and test of each mouse in rr experiment
+mouse_key_dict = {
+ 'idm43_7E53':['IDM43_DAY2_explore_RW__Video_20240820143457359', 'IDM43_DAY3_test_RW__Video_20240821094703516'],
+ 'idm43_7993':['IDM43_DAY2_explore_RW__Video_20240820133343700', 'IDM43_DAY3_test_RW__Video_20240821111818959'],
+ 'idm43_7C63':['IDM43_DAY2_explore_RW__Video_20240820113008157', 'IDM43_DAY3_test_RW__Video_20240821122954162'],
+ 'idm43_7FC3':['IDM43_DAY2_explore_RW__Video_20240820123145387', 'IDM43_DAY3_test_RW__Video_20240821135948320'],
+ 'idm43_0783':['IDM43_DAY2_explore_RW__Video_20240820153959243', 'IDM43_DAY3_test_RW__Video_20240821152250197'],
+ 'idm55_0ED1':['IDM55_DAY2_explore_RW__Video_20251003122919839', 'IDM55_DAY3_test_RW__Video_20251004081629980'],
+ 'idm55_EDF1':['IDM55_DAY2_explore_RW__Video_20251003112651634', 'IDM55_DAY3_test_RW__Video_20251004102248835'],
+ 'idm55_E031':['IDM55_DAY2_explore_RW__Video_20251003092104263', 'IDM55_DAY3_test_RW__Video_20251004125140911'],
+ 'idm56_E5C1':['IDM56_DAY2_explore_RW__Video_20251003153836513', 'IDM56_DAY3_test_RW__Video_20251004144840595'],
+ 'idm56_EC91':['IDM56_DAY2_explore_RW__Video_20251003174355150', 'IDM56_DAY3_test_RW__Video_20251004165829407'],
+ 'idm42_7393':['IDM42_DAY2_explore_RW__Video_20240808125527451', 'IDM42_DAY3_test_RW__Video_20240809110702008'],
+ 'idm42_7363':['IDM42_DAY2_explore_RW__Video_20240808135714596', 'IDM42_DAY3_test_RW__Video_20240809134754003'],
+ 'idm42_F133':['IDM42_DAY2_explore_RW__Video_20240808114928598', 'IDM42_DAY3_test_RW__Video_20240809150309026'],
+ 'idm53_B692':['IDM53_DAY2_explore_RW__Video_20250930103031854', 'IDM53_DAY3_test_RW__Video_20251001092351321'],
+ 'idm53_E151':['IDM53_DAY2_explore_RW__Video_20250930082301690', 'IDM53_DAY3_test_RW__Video_20251001113621376'],
+ 'idm54_EFC1':['IDM54_DAY2_explore_RW__Video_20250930155235954', 'IDM54_DAY3_test_RW__Video_20251001124723892'],
+ 'idm54_0E71':['IDM54_DAY2_explore_RW__Video_20250930165541328', 'IDM54_DAY3_test_RW__Video_20251001152123409'],
+ 'idm54_E7F1':['IDM54_DAY2_explore_RW__Video_20250930123818869', 'IDM54_DAY3_test_RW__Video_20251001172940883'],
+ 'idm41_C8C3':['IDM41_DAY2_explore_RW__Video_20240806095707951', 'IDM41_DAY3_test_RW__Video_20240807082909271'],
+ 'idm41_7C93':['IDM41_DAY2_explore_RW__Video_20240806112449473', 'IDM41_DAY3_test_RW__Video_20240807093223714'],
+ 'idm41_CE93':['IDM41_DAY2_explore_RW__Video_20240806150106153', 'IDM41_DAY3_test_RW__Video_20240807103703656'],
+ 'idm41_7A33':['IDM41_DAY2_explore_RW__Video_20240806135634006', 'IDM41_DAY3_test_RW__Video_20240807121532938'],
+ 'idm41_08E3':['IDM41_DAY2_explore_RW__Video_20240806125024730', 'IDM41_DAY3_test_RW__Video_20240807132558913'],
+ 'idm51_0363':['IDM51_DAY2_explore_RW__Video_20250927105755600', 'IDM51_DAY3_test_RW__Video_20250928082051219'],
+ 'idm51_0B72':['IDM51_DAY2_explore_RW__Video_20250927095140156', 'IDM51_DAY3_test_RW__Video_20250928104351282'],
+ 'idm51_30A3':['IDM51_DAY2_explore_RW__Video_20250927120453246', 'IDM51_DAY3_test_RW__Video_20250928125228061'],
+ 'idm52_B7F2':['IDM52_DAY2_explore_RW__Video_20250927182847205', 'IDM52_DAY3_test_RW__Video_20250928150346490'],
+ 'idm52_0BD2':['IDM52_DAY2_explore_RW__Video_20250927161828668', 'IDM52_DAY3_test_RW__Video_20250928171332190'],
+    'idm39_8D53':['IDM39_DAY2_explore_RW__Video_20240723134631618', 'IDM39_DAY3_test_RW__Video_20240724092140591'], 
+    'idm39_8F93':['IDM39_DAY2_explore_RW__Video_20240723092549797', 'IDM39_DAY3_test_RW__Video_20240724114211016'], 
+    'idm39_7B53':['IDM39_DAY2_explore_RW__Video_20240723102757031', 'IDM39_DAY3_test_RW__Video_20240724125557863'], 
+    'idm39_7963':['IDM39_DAY2_explore_RW__Video_20240723124836483', 'IDM39_DAY3_test_RW__Video_20240724135310191'],
+    'idm44_F293':['IDM44_DAY2_explore_RW__Video_20240910145425698', 'IDM44_DAY3_test_RW__Video_20240911100118164'],
+    'idm44_F3F3':['IDM44_DAY2_explore_RW__Video_20240910124814218', 'IDM44_DAY3_test_RW__Video_20240911112548573'],
+    'idm44_0F33':['IDM44_DAY2_explore_RW__Video_20240910135056927', 'IDM44_DAY3_test_RW__Video_20240911123333156'], 
+    'idm44_F9F3':['IDM44_DAY2_explore_RW__Video_20240910103939767', 'IDM44_DAY3_test_RW__Video_20240911133815777'],
+    'idm56_E1A1':['IDM56_DAY2_explore_RW__Video_20251003133303422', 'IDM56_DAY3_test_RW__Video_20251004134617003'], 
+    'idm56_EF31':['IDM56_DAY2_explore_RW__Video_20251003143533180', 'IDM56_DAY3_test_RW__Video_20251004155415550'],
+    'idm56_EEA1':['IDM56_DAY2_explore_RW__Video_20251003164101607', 'IDM56_DAY3_test_RW__Video_20251004180007763'],
+    'idm40_72F3':['IDM40_DAY3_explore_RW__Video_20240731112721057', 'IDM40_DAY4_test_RW__Video_20240801092629043'], 
+    'idm40_78F3':['IDM40_DAY3_explore_RW__Video_20240731133156660', 'IDM40_DAY4_test_RW__Video_20240801102631110'], 
+    'idm40_07D3':['IDM40_DAY3_explore_RW__Video_20240731122843426', 'IDM40_DAY4_test_RW__Video_20240801114358181'], 
+    'idm40_8DA3':['IDM40_DAY3_explore_RW__Video_20240731092116559', 'IDM40_DAY4_test_RW__Video_20240801130213256'], 
+    'idm40_CDC3':['IDM40_DAY3_explore_RW__Video_20240731102532553', 'IDM40_DAY4_test_RW__Video_20240801140356711'],
+    'idm46_C163':['IDM46_DAY2_explore_RW__Video_20240923105911023', 'IDM46_DAY3_test_RW__Video_20240924093055261'], 
+    'idm46_C5F3':['IDM46_DAY2_explore_RW__Video_20240923120007615', 'IDM46_DAY3_test_RW__Video_20240924103431069'], 
+    'idm46_C2C3':['IDM46_DAY2_explore_RW__Video_20240923142722749', 'IDM46_DAY3_test_RW__Video_20240924113631857'],
+    'idm46_D6C3':['IDM46_DAY2_explore_RW__Video_20240923095703345', 'IDM46_DAY3_test_RW__Video_20240924124752802'], 
+    'idm46_F5A3':['IDM46_DAY2_explore_RW__Video_20240923132550253', 'IDM46_DAY3_test_RW__Video_20240924135440928'], 
+    'idm53_BEA2':['IDM53_DAY2_explore_RW__Video_20250930092753448', 'IDM53_DAY3_test_RW__Video_20251001103244006'], 
+    'idm54_E661':['IDM54_DAY2_explore_RW__Video_20250930134111987', 'IDM54_DAY3_test_RW__Video_20251001141545454'],
+    'idm54_EE51':['IDM54_DAY2_explore_RW__Video_20250930144904454', 'IDM54_DAY3_test_RW__Video_20251001162420178'],
+    'idm38_9433':['IDM38_DAY2_explore_RW__Video_20240718121541951', 'IDM38_DAY3_test_RW__Video_20240719093531305'], 
+    'idm38_9053':['IDM38_DAY2_explore_RW__Video_20240718162117107', 'IDM38_DAY3_test_RW__Video_20240719104041574'], 
+    'idm38_94C3':['IDM38_DAY2_explore_RW__Video_20240718131828152', 'IDM38_DAY3_test_RW__Video_20240719114921264'], 
+    'idm38_8F63':['IDM38_DAY2_explore_RW__Video_20240718152031436', 'IDM38_DAY3_test_RW__Video_20240719125554597'], 
+    'idm38_8EF3':['IDM38_DAY2_explore_RW__Video_20240718141937889', 'IDM38_DAY3_test_RW__Video_20240719143821569'], 
+    'idm45_0C53':['IDM45_DAY2_explore_RW__Video_20240919125551745', 'IDM45_DAY3_test_RW__Video_20240920093404743'],
+    'idm51_3893':['IDM51_DAY2_explore_RW__Video_20250927130707859', 'IDM51_DAY3_test_RW__Video_20250928114746425'], 
+    'idm52_BF32':['IDM52_DAY2_explore_RW__Video_20250927172059905', 'IDM52_DAY3_test_RW__Video_20250928135745223'], 
+    'idm52_BA32':['IDM52_DAY2_explore_RW__Video_20250927141220135', 'IDM52_DAY3_test_RW__Video_20250928161033574'],
+    'idm52_B662':['IDM52_DAY2_explore_RW__Video_20250927151514653', 'IDM52_DAY3_test_RW__Video_20250928181702164']
+}
 
 linkduration =12
 filterduration = 120

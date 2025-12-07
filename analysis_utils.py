@@ -16,9 +16,17 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
+from matplotlib import patches
+from matplotlib.patches import Patch,Wedge
+from matplotlib.colors import LogNorm
 import seaborn as sns
 import math
+import ruptures as rpt
+from itertools import combinations
+from scipy.stats import rankdata, chi2
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+
 
 def event_timepoint_toS(timestr):
     str_ls = timestr.split(":")
@@ -216,7 +224,7 @@ def social_exploration_plotting(idm_id,ds_pair):
     video_file = [x for x in file_ls if "videonames" in x][0]
     df_video = pd.read_csv(os.path.join(idm_path, video_file))
 
-    color_ls = ["gold","gray"]
+    color_ls = ["red","royalblue"]
     id_color_dict={}
     for i in range(len(ds_pair)):
         id_color_dict[ds_pair[i]]=color_ls[i]
@@ -270,12 +278,19 @@ def feature_table_processor(df_idm):
     df_idm["x_loc_end_to_sz"] = df_idm.apply(lambda x: (1885 - x['x_loc_end']), axis=1)
     df_idm["x_loc_exit_to_sz"] = df_idm.apply(lambda x: (1885 - x['x_loc_exit']), axis=1)
     df_idm["x_loc_change"] = df_idm.apply(lambda x: (x['x_loc_end'] - x['x_loc_looming']), axis=1)
+    df_idm["distance_under_threat"] = df_idm.apply(lambda x: (x['x_loc_off'] - x['x_loc_looming']), axis=1)
+    df_idm["distance_fled_new"] = df_idm.apply(lambda x: (x['x_loc_fled_end'] - x['x_loc_looming']), axis=1)
     df_idm["exit_time_after_looming"] = df_idm.apply(lambda x: (x['exit_idx'] - 300), axis=1)
     df_idm["end_time_after_looming"] = df_idm.apply(lambda x: (x['trial_end_idx'] - 300), axis=1)
     df_idm["reach_safe_time_after_looming"] = df_idm.apply(lambda x: (x['reach_safe_idx'] - 300), axis=1)
     df_idm["escape_to_reach_safe_time"] = df_idm.apply(lambda x: (x['reach_safe_idx'] - 300 - x['latency_to_first_escape']), axis=1)
+    df_idm["decision_latency"] = df_idm.apply(lambda x: (min(x['latency_to_first_escape'],x['freeze_start'])), axis=1)
     df_idm["first_decision"] = df_idm.apply(lambda x: (1 if x['latency_to_first_escape']<x['freeze_start'] else 2), axis=1)
-
+    df_idm["decision_latency_new"] = df_idm.apply(lambda x: (x['latency_to_first_escape'] if x['whichDecision_new']==1 
+                                                             else x['freeze_start'] if 2<=x['whichDecision_new']<=3
+                                                             else np.nan), axis=1)
+    df_idm["decision_corrected"] = df_idm.apply(
+        lambda x: (-1 if x['stim_omit']==1 else x['whichDecision_new'] if pd.isna(x['manual_label']) else x['manual_label']), axis=1)
     return df_idm
 
 
@@ -285,7 +300,8 @@ def feature_unit_scaling(df_idm):
     cmPerPixel = 100/1885
     df_new = df_idm.copy(deep=True)
     df_cols = df_idm.columns
-    time_related_feature = ['latency_to_maxSpeed', 'duration_high_speed','exit_time_after_looming',"longest_immobile_duration",
+    time_related_feature = ['latency_to_maxSpeed',"fled_allover_duration", 'duration_high_speed','exit_time_after_looming',
+                            "longest_immobile_duration",
                             "first_immobile_start","total_immobile_duration",
                             "end_time_after_looming","escape_to_reach_safe_time","duration_reward",
                             "reach_safe_time_after_looming", 'durationsM', "sum_duration_lsM",
@@ -294,7 +310,8 @@ def feature_unit_scaling(df_idm):
                             'duration_between_escape_and_freeze', "exit_time_after_looming",'latency_to_first_escape',
                            'back_idx_after_flee']
     distance_related_feature = ['x_loc_looming', 'x_loc_off', 'x_loc_end','x_loc_exit', "x_loc_off_to_sz","x_loc_end_to_sz",
-                                "x_loc_exit_to_sz",'x_loc_distance_duration_high_speed',
+                                "x_loc_exit_to_sz",'x_loc_distance_duration_high_speed',"x_loc_fled_end",
+                                "distance_under_threat","distance_fled_new",
                                 'escape_distance', "x_loc_change", "x_loc_immobile","furthest_loc","nearest_back_loc",
                                "furthest_loc_after_esc","nearest_back_loc_after_esc",]
     for f_time in time_related_feature:
@@ -308,6 +325,7 @@ def feature_unit_scaling(df_idm):
         else:
             continue
     return df_new
+
 
 
 def plot_speed_heatmap(data_scaled, df_info, plot_name, order="trial", plotsize=(10,5), see_title=True):
@@ -456,7 +474,53 @@ def plot_mean_sem_feature_curve(df_idm, vary="num_stim", feature="max_speedS", s
     plt.tight_layout()
     plt.show()
 
-    
+
+def ruptures_change_point_detection_plot(data, model='rbf', min_size=10,pen=10,jump=1,plot=False,title=''):
+    """
+    ruptures for change point detection.
+
+    Parameters
+    ----------
+    data : np.array
+        1D array of cumulative data (normalized so last value = 1)
+    decision_threshold : float
+        Log-odds threshold to accept a change point
+    min_size : int
+        Minimum segment length to attempt detection
+
+    Returns
+    -------
+    change_points : list
+        Sorted indices of detected change points
+    """
+    data = (data - data.min()) / (data.max() - data.min())*100
+    algo = rpt.Pelt(model=model,min_size=min_size,jump=jump).fit(data)
+    result = algo.predict(pen=pen)
+    change_points = result[:-1] 
+    if plot:
+
+        plt.figure(figsize=(8, 5))
+        data_cumsum = np.cumsum(data)
+        data_cumsum_norm =  (data_cumsum - data_cumsum.min()) / (data_cumsum.max() - data_cumsum.min())*100
+        plt.plot(data_cumsum_norm,'o-',label="Cumulative record",color="black",linewidth=1, markersize=10)
+
+        plt.axvline(change_points[0]-0.5, color="red", linestyle="--", linewidth=1)
+        plt.xlabel("Time")
+        plt.ylabel("Normalized cumulative value")
+        ax=plt.gca()
+        ax.tick_params(width=0.5)
+        for spine in ["top","right"]:
+            ax.spines[spine].set_visible(False)
+        for spine in ["bottom","left"]:
+            ax.spines[spine].set_linewidth(0.5)
+        ax.set_axisbelow(True)
+        plt.title(title)
+        plt.show()
+        print(change_points)
+
+    return change_points   
+
+
 def adjacent_values(vals, q1, q3):
     upper_adjacent_value = q3 + (q3 - q1) * 1.5
     upper_adjacent_value = np.clip(upper_adjacent_value, q3, vals[-1])
@@ -542,13 +606,91 @@ def prism_boxplot(data,ax,center=1,box_width=0.5, edgecolor="black"):
     ax.plot([center - cap_width/2, center + cap_width/2], [minimum, minimum], color=edgecolor)
     ax.plot([center - cap_width/2, center + cap_width/2], [maximum, maximum], color=edgecolor)
 
-    
+
+def scheirer_ray_hare_R_equiv(data, dv, factor1, factor2,
+                              type=2, tie_correct=True, ss=True, verbose=True):
+    """
+    Equal to R::PMCMRplus::scheirerRayHare()
+    """
+    y = data[dv].to_numpy()
+    x1 = data[factor1].astype("category")
+    x2 = data[factor2].astype("category")
+
+    complete = ~(pd.isna(y) | pd.isna(x1) | pd.isna(x2))
+    y = y[complete]
+    x1 = x1[complete]
+    x2 = x2[complete]
+
+    R = rankdata(y)
+    n = len(R)
+
+    if tie_correct:
+        tie_table = pd.Series(R).value_counts()
+        D = 1 - np.sum(tie_table**3 - tie_table) / (n**3 - n)
+    else:
+        D = 1
+
+    df = pd.DataFrame({
+        "R": R,
+        factor1: x1.to_numpy(),
+        factor2: x2.to_numpy()
+    })
+
+    model1 = smf.ols(f"R ~ C({factor1}) + C({factor2}) + C({factor1}):C({factor2})", data=df).fit()
+    anova1 = sm.stats.anova_lm(model1, typ=1)
+
+    df_terms = anova1["df"].values
+    SS_terms = anova1["sum_sq"].values
+
+    if type == 2:
+        model2 = smf.ols(f"R ~ C({factor2}) + C({factor1}) + C({factor1}):C({factor2})", data=df).fit()
+        anova2 = sm.stats.anova_lm(model2, typ=1)
+
+        SS_terms[0] = anova2["sum_sq"].values[1]
+        df_terms[0] = anova2["df"].values[1]
+
+    MStotalSokal = n * (n + 1) / 12
+
+    SS_main = SS_terms[:3]
+    df_main = df_terms[:3]
+
+    H = SS_main / MStotalSokal
+    H_adj = H / D
+
+    # p-values
+    p_values = 1 - chi2.cdf(H_adj, df_main)
+
+    if ss:
+        out = pd.DataFrame({
+            "df": df_main,
+            "SS": SS_main,
+            "H": H_adj,
+            "p.value": p_values
+        })
+    else:
+        out = pd.DataFrame({
+            "df": df_main,
+            "H": H_adj,
+            "p.value": p_values
+        })
+
+    out.index = [
+        factor1,
+        factor2,
+        f"{factor1}:{factor2}"
+    ]
+
+    if verbose:
+        print("\nDV:", dv)
+        print("Observations:", n)
+        print("Tie correction D:", D)
+        print("MS total (Sokal):", MStotalSokal)
+        print()
+
+    return out
+
+
 # Defining a fitting fucntionß
-def hab_exp(x,tau_1,tau_2):
-    x = x-1
-    return (np.exp(-x/tau_1)+np.exp(-x/tau_2))/2
-
-
 def weber(sc,sc_0):
     pc = np.zeros_like(sc)
     if sc>=sc_0:
@@ -565,6 +707,110 @@ def savefig(file_save):
     plt.savefig(file_save+'.svg',bbox_inches='tight')
     plt.savefig(file_save+'.pdf',bbox_inches='tight')
     
+
+def plot_loss(loss_fit,alpha_arr,beta_arr,delta_noise_arr,thr_flee_arr,file_save=''):
+    
+    idx_sorted = np.unravel_index(np.argsort(loss_fit, axis=None), loss_fit.shape)
+    # Parameter arrays
+    param_arrays = {
+        "Alpha": alpha_arr,
+        "Threshold": thr_flee_arr,
+        "Beta": beta_arr,
+        "Delta": delta_noise_arr
+    }
+    
+
+    # Best indices for fixing the other parameters
+    best_idx = {
+        "Alpha": idx_sorted[0][0],
+        "Threshold": idx_sorted[1][0],
+        "Beta": idx_sorted[2][0],
+        "Delta": idx_sorted[3][0]
+    }
+
+    param_order = ["Alpha", "Threshold", "Beta", "Delta"]
+
+    def slice_loss_for_pair(p1, p2):
+        """Return 2D slice of loss for parameter pair (p1, p2)
+           Shape = (len(p1_array), len(p2_array))"""
+
+        idx = []
+        for p in param_order:
+            if p == p1:
+                idx.append(slice(None))
+            elif p == p2:
+                idx.append(slice(None))
+            else:
+                idx.append(best_idx[p])
+
+        idx = tuple(idx)
+       # Best coordinate in the slice
+       
+        L = loss_fit[idx]
+        local_best = np.unravel_index(np.nanargmin(L), L.shape)
+
+        return L, local_best
+    # All 6 parameter pairs
+    pairs = list(combinations(param_order, 2))
+
+    plt.figure(figsize=(16, 10))
+
+    for i, (p1, p2) in enumerate(pairs, 1):
+        arr1 = param_arrays[p1]
+        arr2 = param_arrays[p2]
+
+        L, (i_best, j_best) = slice_loss_for_pair(p1, p2)
+
+        # Meshgrid matching L.shape exactly
+        X, Y = np.meshgrid(arr1, arr2, indexing='ij')
+
+        # -------------------------
+        #   Main plotting
+        # -------------------------
+        plt.subplot(2, 3, i)
+        plt.pcolormesh(X, Y, L, shading='auto', norm=LogNorm())  # ← log-scale color!
+        # plt.colorbar(label="loss (log scale)")
+        plt.colorbar()
+        plt.xlabel(p1)
+        plt.ylabel(p2)
+        plt.plot(arr1[i_best], arr2[j_best], 'r*', markersize=6)
+
+    # Save combined figure
+    plt.tight_layout()
+    if len(file_save)>0:
+        savefig(file_save)
+    plt.show()
+
+    
+def plot_loss_reward_beta(loss_fit, reward_arr, beta_arr, file_save=""):
+    """
+    Plot a 2D loss landscape for only one parameter pair:
+    reward_arr (x-axis) and beta_arr (y-axis)
+    loss_fit must have shape (len(reward_arr), len(beta_arr)).
+    """
+
+    # Find global best
+    best_idx = np.unravel_index(np.nanargmin(loss_fit), loss_fit.shape)
+    i_best, j_best = best_idx
+
+    # Create meshgrid
+    X, Y = np.meshgrid(reward_arr, beta_arr, indexing="ij")
+
+    # Plot
+    plt.figure(figsize=(6, 5))
+    plt.pcolormesh(X, Y, loss_fit, shading='auto', norm=LogNorm())
+    plt.colorbar(label="loss (log scale)")
+    plt.xlabel("Reward")
+    plt.ylabel("Beta")
+
+    # Mark best point
+    plt.plot(reward_arr[i_best], beta_arr[j_best], 'r*', markersize=10)
+
+    plt.tight_layout()
+    if len(file_save)>0:
+        savefig(file_save)
+    plt.show()
+
     
 def pie_plot(decisions,decisions_fit,file_save=''):
     fig,axs = plt.subplots(2,2)
@@ -578,8 +824,8 @@ def pie_plot(decisions,decisions_fit,file_save=''):
     if len(file_save)>0:
         savefig(file_save)
     plt.show()
-    
-    
+
+
 def plot_sem(t,y,ye,context,fig_size_unit=6,file_save=''):
     vs_start = context["vs_start"]
     time_before = context["time_before"]
@@ -656,118 +902,190 @@ def hab_exp_fit(params,x,y):
     return y-y_fit
 
 
-def value_fun_fit_1st_plot(params, contrast, context):
+def value_fun_fit_1st_plot(params,contrast,n_trial,context,n_rep=100):
     alpha = params['alpha']
     thr_flee = params['thr_flee']
     beta_low = 1
     beta_high = params['beta_high']
-    beta_arr = np.array([beta_low, beta_high])
+    beta_arr = np.array([beta_low,beta_high])
     delta_noise = params['delta_noise']
-
+    # beta = 1
+    print('{:.2f},{:.2f},{:.2f},{:.2f}'.format(alpha,thr_flee,beta_high,delta_noise))
+    
     vs = context["vs"]
     t = context["t"]
     dt = context["dt"]
     n_t = context["n_t"]
     time_before = context["time_before"]
-    trials_reward = context["trials_reward"]
-    hab_tau_1 = context["hab_tau_1"]
-    hab_tau_2 = context["hab_tau_2"]
-    
-    print('{:.2f},{:.2f},{:.2f},{:.2f}'.format(alpha,thr_flee,beta_high,delta_noise))
-    hab_arr=hab_exp(trials_reward,hab_tau_1,hab_tau_2)
-    n_hab = hab_arr.size
+
     value = np.zeros(n_t)
     reward = 0 
     latency_flee_sd_fit = np.zeros_like(contrast)
-    n_rep = 100
-    latency_flee_fit = np.zeros((2,n_hab,n_rep))
-    decisions_fit = np.zeros((2,n_hab,n_rep))
+    latency_flee_fit = np.zeros((2,n_trial,n_rep))
+    decisions_fit = np.zeros((2,n_trial,n_rep))
     decisions_fit_sum = np.zeros((2,3))
-    value_arr = np.zeros((2,n_hab,n_rep,n_t))
+    value_arr = np.zeros((2,n_trial,n_rep,n_t))
     rand_seeds = []
     for ci, c in enumerate(contrast):
         plt.figure()
         beta = beta_arr[ci]
-        for i_hab,hab in enumerate(hab_arr): 
+        for i_trial in range(n_trial): 
             for i_rep in range(n_rep):
                 value = np.zeros(n_t)
-                np.random.seed(i_rep+i_hab*n_rep+ci*n_rep*n_hab)
-                rand_seeds.append(i_rep+i_hab*n_rep+ci*n_rep*n_hab)
+                np.random.seed(i_rep+i_trial*n_rep+ci*n_rep*n_trial)
+                rand_seeds.append(i_rep+i_trial*n_rep+ci*n_rep*n_trial)
                 noise = (np.random.rand(n_t)*2-1)
                 for i in range(1,n_t):
-                    d_value = (-value[i-1]*alpha + beta*hab*vs[i] - reward + delta_noise*noise[i])*dt
+                    d_value = (-value[i-1]*alpha + beta*vs[i] - reward + delta_noise*noise[i])*dt
                     value[i] = value[i-1] + d_value
+                # if ci==0 and i_rep==0:
                 plt.plot(value,alpha=0.5)
-                value_arr[ci,i_hab,i_rep,:] = value
+                value_arr[ci,i_trial,i_rep,:] = value
                 if np.sum(value>thr_flee) == 0:
-                    latency_flee_fit[ci,i_hab,i_rep] = np.nan
-                    decisions_fit[ci,i_hab,i_rep] = 0
+                    latency_flee_fit[ci,i_trial,i_rep] = np.nan
+                    decisions_fit[ci,i_trial,i_rep] = 0
                 else:
-                    latency_flee_fit[ci,i_hab,i_rep] = t[value>thr_flee][0]-time_before
-                    if latency_flee_fit[ci,i_hab,i_rep] >= 0.8: 
-                        decisions_fit[ci,i_hab,i_rep] = 1
+                    latency_flee_fit[ci,i_trial,i_rep] = t[value>thr_flee][0]-time_before
+                    if latency_flee_fit[ci,i_trial,i_rep] >= 0.8: 
+                        decisions_fit[ci,i_trial,i_rep] = 1
                     else:
-                        decisions_fit[ci,i_hab,i_rep] = 2
+                        decisions_fit[ci,i_trial,i_rep] = 2
         latency_flee_fit[latency_flee_fit<0] = 0       
-        decisions_fit_sum[ci,0] = np.sum(decisions_fit[ci,:,:]==0)/(n_hab*n_rep)
-        decisions_fit_sum[ci,1] = np.sum(decisions_fit[ci,:,:]==1)/(n_hab*n_rep)
-        decisions_fit_sum[ci,2] = np.sum(decisions_fit[ci,:,:]==2)/(n_hab*n_rep)
+        decisions_fit_sum[ci,0] = np.sum(decisions_fit[ci,:,:]==0)/(n_trial*n_rep)
+        decisions_fit_sum[ci,1] = np.sum(decisions_fit[ci,:,:]==1)/(n_trial*n_rep)
+        decisions_fit_sum[ci,2] = np.sum(decisions_fit[ci,:,:]==2)/(n_trial*n_rep)
     return latency_flee_fit,decisions_fit_sum,value_arr,np.array(rand_seeds)
 
 
-def value_fun_fit_2nd_plot(params, contrast, context):
+def value_fun_fit_2nd_plot(params,contrast,n_trial,context,n_rep=100):
     alpha = params['alpha']
     thr_flee = params['thr_flee']
     delta_noise = params['delta_noise']
     reward = params['reward']
     beta_low = params['beta_low']
     beta_high = params['beta_high']
-    beta_arr = np.array([beta_low, beta_high])
-
+    beta_arr = np.array([beta_low,beta_high])
+    print('parameters: {:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f}'.format(alpha,thr_flee,delta_noise,reward,beta_low,beta_high))
+    
     vs = context["vs"]
     t = context["t"]
     dt = context["dt"]
     n_t = context["n_t"]
     time_before = context["time_before"]
-    trials_reward = context["trials_reward"]
-    hab_tau_1 = context["hab_tau_1"]
-    hab_tau_2 = context["hab_tau_2"]
+    value = np.zeros(n_t)
     
-    print('parameters: {:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f}'.format(alpha,thr_flee,delta_noise,reward,beta_low,beta_high))
-    hab_arr=hab_exp(trials_reward,hab_tau_1,hab_tau_2)
-    n_hab = hab_arr.size
-    value = np.zeros(n_t)  
-    n_rep = 100
-    latency_flee_fit = np.zeros((2,n_hab,n_rep))
-    decisions_fit = np.zeros((2,n_hab,n_rep))
+    latency_flee_fit = np.zeros((2,n_trial,n_rep))
+    decisions_fit = np.zeros((2,n_trial,n_rep))
     decisions_fit_sum = np.zeros((2,3))
-    vigor_fit = np.zeros((2,n_hab,n_rep))
-    value_arr = np.zeros((2,n_hab,n_rep,n_t))
+    vigor_fit = np.zeros((2,n_trial,n_rep))
+    value_arr = np.zeros((2,n_trial,n_rep,n_t))
     for ci, c in enumerate(contrast):
-        plt.figure()
         beta = beta_arr[ci]
-        for i_hab,hab in enumerate(hab_arr): 
+        for i_trial in range(n_trial): 
             for i_rep in range(n_rep):
                 value = np.zeros(n_t)
-                np.random.seed(i_rep+i_hab*n_rep+ci*n_rep*n_hab)
+                np.random.seed((i_rep+i_trial*n_rep+ci*n_rep*n_trial)*10)
+                # np.random.seed()
                 noise = (np.random.rand(n_t)*2-1)
                 for i in range(1,n_t):
-                    d_value = (-value[i-1]*alpha + beta*hab*vs[i] - reward + delta_noise*noise[i])*dt
+                    d_value = (-value[i-1]*alpha + beta*vs[i] - reward + delta_noise*noise[i])*dt
                     value[i] = value[i-1] + d_value
-                plt.plot(value)
-                value_arr[ci,i_hab,i_rep,:] = value
+                value_arr[ci,i_trial,i_rep,:] = value
                 if np.sum(value>thr_flee) == 0:
-                    latency_flee_fit[ci,i_hab,i_rep] = np.nan
-                    decisions_fit[ci,i_hab,i_rep] = 0
+                    latency_flee_fit[ci,i_trial,i_rep] = np.nan
+                    decisions_fit[ci,i_trial,i_rep] = 0
                 else:
-                    latency_flee_fit[ci,i_hab,i_rep] = t[value>thr_flee][0]-time_before
-                    if latency_flee_fit[ci,i_hab,i_rep] >= 0.8: 
-                        decisions_fit[ci,i_hab,i_rep] = 1
+                    latency_flee_fit[ci,i_trial,i_rep] = t[value>thr_flee][0]-time_before
+                    if latency_flee_fit[ci,i_trial,i_rep] >= 0.8: 
+                        decisions_fit[ci,i_trial,i_rep] = 1
                     else:
-                        decisions_fit[ci,i_hab,i_rep] = 2
+                        decisions_fit[ci,i_trial,i_rep] = 2
         latency_flee_fit[latency_flee_fit<0] = 0       
-        decisions_fit_sum[ci,0] = np.sum(decisions_fit[ci,:,:]==0)/(n_hab*n_rep)
-        decisions_fit_sum[ci,1] = np.sum(decisions_fit[ci,:,:]==1)/(n_hab*n_rep)
-        decisions_fit_sum[ci,2] = np.sum(decisions_fit[ci,:,:]==2)/(n_hab*n_rep)
+        decisions_fit_sum[ci,0] = np.sum(decisions_fit[ci,:,:]==0)/(n_trial*n_rep)
+        decisions_fit_sum[ci,1] = np.sum(decisions_fit[ci,:,:]==1)/(n_trial*n_rep)
+        decisions_fit_sum[ci,2] = np.sum(decisions_fit[ci,:,:]==2)/(n_trial*n_rep)
         
     return latency_flee_fit,decisions_fit_sum,value_arr,vigor_fit
+
+
+def draw_pie(ax, center, values, radius=0.2, colors=None):
+    if colors is None:
+        colors = plt.cm.tab20.colors
+
+    total = sum(values)
+    start = 0
+    for i, v in enumerate(values):
+        theta1 = start
+        theta2 = start + v / total * 360
+        wedge = Wedge(center, radius, theta1, theta2, facecolor=colors[i], edgecolor="black", linewidth=0)
+        ax.add_patch(wedge)
+        start = theta2
+        
+        
+def vigilance_logistic(saliency, v_max=1.0, k=5.0, s_50=0.5):
+    """
+    Vigilance as a logistic (sigmoidal) function of saliency
+    
+    Parameters:
+    -----------
+    saliency : float or array
+        Input saliency value(s) [0-1]
+    v_max : float
+        Maximum vigilance level (asymptote) [0-1]
+    k : float
+        Steepness/slope parameter (higher = steeper)
+    s_50 : float
+        Saliency at half-maximum vigilance (inflection point)
+    
+    Returns:
+    --------
+    vigilance : float or array
+        Vigilance level(s) [0-v_max]
+    """
+    return v_max / (1 + np.exp(-k * (saliency - s_50)))
+
+
+def x_analytical(t, alpha, beta, r, x0):
+    C = x0 + (beta + r*alpha) / (alpha**2)
+    return C * np.exp(-alpha*t) + (beta/alpha)*t - (beta + r*alpha)/(alpha**2)
+
+
+def find_latency(alpha,beta, r, x0, threshold, t_max=5):
+    """Find first time t > 0 when x(t) >= threshold, return None if never reaches"""
+    # First check if x ever exceeds threshold
+    t_test = np.linspace(0, t_max, 1001)
+    x_test = x_analytical(t_test, alpha, beta, r, x0)
+    
+    if np.max(x_test) < threshold:
+        return None  # Never reaches threshold
+    
+    # Use root finding to find precise crossing time
+    def func(t):
+        return x_analytical(t, alpha, beta, r, x0) - threshold
+    
+    # Find initial bracket
+    t_bracket = None
+    for i in range(len(t_test)-1):
+        if x_test[i] <= threshold < x_test[i+1]:
+            t_bracket = (t_test[i], t_test[i+1])
+            break
+        elif x_test[i] >= threshold > x_test[i+1]:
+            t_bracket = (t_test[i+1], t_test[i])
+            break
+    
+    if t_bracket is None:
+        # Check if already above threshold at t=0 (won't happen with x0=0 and threshold>0)
+        if x_analytical(0, alpha, beta, r, x0) >= threshold:
+            return 0
+        else:
+            return None
+    
+    try:
+        t_cross = fsolve(func, t_bracket[0])[0]
+        return max(0, t_cross)  # Ensure non-negative
+    except:
+        # Fallback: find first time it exceeds threshold in discrete grid
+        for i, t in enumerate(t_test):
+            if x_analytical(t, alpha, beta, r, x0) >= threshold:
+                return t
+        return None
