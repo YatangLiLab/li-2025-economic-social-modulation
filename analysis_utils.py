@@ -773,7 +773,7 @@ def plot_loss(loss_fit,alpha_arr,beta_arr,delta_noise_arr,thr_flee_arr,file_save
         plt.colorbar()
         plt.xlabel(p1)
         plt.ylabel(p2)
-        plt.plot(arr1[i_best], arr2[j_best], 'r*', markersize=6)
+        plt.scatter(arr1[i_best], arr2[j_best], marker="*", s=400, c="red", linewidths=0)
 
     # Save combined figure
     plt.tight_layout()
@@ -804,7 +804,7 @@ def plot_loss_reward_beta(loss_fit, reward_arr, beta_arr, file_save=""):
     plt.ylabel("Beta")
 
     # Mark best point
-    plt.plot(reward_arr[i_best], beta_arr[j_best], 'r*', markersize=10)
+    plt.scatter(reward_arr[i_best], beta_arr[j_best], marker="*", s=400, c="red", linewidths=0)
 
     plt.tight_layout()
     if len(file_save)>0:
