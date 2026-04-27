@@ -534,6 +534,28 @@ def ruptures_change_point_detection_plot(data, model='rbf', min_size=10,pen=10,j
     return change_points   
 
 
+def show_change_point_plot(data,change_point,title=''):
+    data = (data - data.min()) / (data.max() - data.min())*100
+
+    plt.figure(figsize=(8, 5))
+    data_cumsum = np.cumsum(data)
+    data_cumsum_norm =  (data_cumsum - data_cumsum.min()) / (data_cumsum.max() - data_cumsum.min())*100
+    plt.plot(data_cumsum_norm,'o-',label="Cumulative record",color="black",linewidth=1, markersize=10)
+
+    plt.axvline(change_point-1.5, color="red", linestyle="--", linewidth=1)#change_point recorded from trial 1,but python start with 0
+    plt.xlabel("Time")
+    plt.ylabel("Normalized cumulative value")
+    ax=plt.gca()
+    ax.tick_params(width=0.5)
+    for spine in ["top","right"]:
+        ax.spines[spine].set_visible(False)
+    for spine in ["bottom","left"]:
+        ax.spines[spine].set_linewidth(0.5)
+    ax.set_axisbelow(True)
+    plt.title(title)
+    plt.show()
+    
+    
 def adjacent_values(vals, q1, q3):
     upper_adjacent_value = q3 + (q3 - q1) * 1.5
     upper_adjacent_value = np.clip(upper_adjacent_value, q3, vals[-1])
