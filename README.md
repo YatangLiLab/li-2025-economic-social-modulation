@@ -3,7 +3,7 @@
 
 This repository contains code to reproduce the main and supplementary figures from:
 
-**Li, Z. et al. (2025). Economic and Social Modulations of Innate Decision-Making in Mice Exposed to Visual Threats. eLife.**
+**Li, Z. et al. (2025). Economic and Social Modulations of Innate Decision-Making in Mice Exposed to Visual Threats. eLife2026;14:RP107306 DOI: https://doi.org/10.7554/eLife.107306.5**
 
 ## Repository Structure
 
